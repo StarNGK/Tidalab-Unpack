@@ -1,5 +1,5 @@
 {
-  "name": "StarCloud全球云加速",
+  "name": "StarCloud",
   "main": "main.js",
   "version": "4.1.10",
   "author": "tidalab",
@@ -14,7 +14,7 @@
   },
   "build": {
     "electronVersion": "11.0.0",
-    "productName": "StarCloud全球云加速",
+    "productName": "StarCloud",
     "appId": "com.starm",
     "copyright": "©2024 StarCloud, Inc.",
     "directories": {
