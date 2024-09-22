@@ -4,7 +4,7 @@
   },
   "Api": {
     "Baseurl": [
-      "https://your-api-url.com"
+      "https://sub.starm.cc"
     ],
     "Balance": "round"
   }
