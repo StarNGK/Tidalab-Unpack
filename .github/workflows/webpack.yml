@@ -1,0 +1,61 @@
+name: 手动打包
+
+on:
+   # workflow_dispatch为在Github仓库的Actions面板中手动执行
+   workflow_dispatch:
+
+jobs:
+   build:
+     runs-on: ${{ matrix.os }}
+
+     strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+     steps:
+     - name: 签出存储库
+       uses: actions/checkout@v3
+
+     - name: 设置 Node.js
+       uses: actions/setup-node@v3
+       with:
+         node-version: '16'
+
+     - name: 安装 Wine（构建 Windows 二进制文件所需）
+       if: matrix.os == 'ubuntu-latest'
+       run: |
+         sudo dpkg --add-architecture i386
+         sudo apt update
+         sudo apt install -y wine64 wine32
+
+     - name: 安装依赖项
+       run: |
+         cd src
+         npm install
+
+     - name: 构建 windows x64
+       if: matrix.os == 'ubuntu-latest'
+       run: |
+         cd src
+         target=win32 npx electron-builder build --win --x64
+
+     - name: 构建 macos x64
+       if: matrix.os == 'macos-latest'
+       run: |
+         cd src
+         target=darwin npx electron-builder build --macos --x64
+
+     - name: 构建 macos arm64
+       if: matrix.os == 'macos-latest'
+       run: |
+         cd src
+         target=darwin npx electron-builder build --macos --arm64
+
+     - name: 上传文件
+       uses: actions/upload-artifact@v3
+       with:
+         name: 潮汐客户端
+         path: |
+          src/build/*.exe
+          src/build/*.dmg
