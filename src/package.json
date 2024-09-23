@@ -5,6 +5,7 @@
   "author": "tidalab",
   "license": "CC0-1.0",
   "dependencies": {
+    "axios": "^1.2.3",
     "express": "^4.17.1",
     "js-yaml": "^3.14.0",
     "kill-port": "^1.6.1",
