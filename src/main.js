@@ -3,14 +3,14 @@ const path = require('path')
 const express = require('express')
 const exec = require('child_process').spawn
 const killPort = require('kill-port')
-const https = require('https')
+const axios = require('axios');
 
 let win
 
-function init() {
+function init () {
   // BrowserWindow
-  const width = 400;
-  const height = 510;
+  const width = 400
+  const height = 510
   win = new BrowserWindow({
     width,
     height,
@@ -25,71 +25,81 @@ function init() {
       webSecurity: false,
       enableRemoteModule: true
     }
-  });
+  })
+  
+// run uniproxy
+const configUrl = "https://oss.starn.cc/config.json";
 
-  // 根据操作系统确定uniproxy的名称
-  const uniproxyName = process.platform === "darwin" ? "uniproxy" : "uniproxy.exe";
-  const uniproxyPath = path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch);
-  const remoteConfigUrl = "https://oss.starn.cc/config.json";
-  const localConfigPath = path.join(uniproxyPath, "config.json");
-  const tempRemoteConfigPath = path.join(uniproxyPath, "remote_config.json");
+// 确保目录存在的函数
+function ensureDirectoryExistence(filePath) {
+  const dirname = path.dirname(filePath);
+  if (fs.existsSync(dirname)) {
+    return true;
+  }
+  fs.mkdirSync(dirname, { recursive: true });
+}
 
-  // Killing the existing process on port 33212
-  killPort(33212);
+// 获取远程配置文件内容并保存到临时文件，然后执行 uniproxy
+async function runUniproxy() {
+  try {
+    // 发送 HTTP 请求获取远程 config.json 内容
+    const response = await axios.get(configUrl);
+    const configContent = JSON.stringify(response.data);
 
-  // 启动Uniproxy函数
-  function startUniproxy(configPath) {
-    console.log(`Starting Uniproxy with config: ${configPath}`);
-    let uniproxy = exec(path.join(uniproxyPath, uniproxyName), [
-      "-host", "127.0.0.1",
-      "-port", "33212",
-      "-conf", configPath
-    ], { cwd: uniproxyPath }, (err, stdout, stderr) => {
+    // 临时配置文件路径
+    const tmpConfigPath = path.join(
+      process.resourcesPath,
+      "libs/",
+      process.platform + "-" + process.arch,
+      "config.json"
+    );
+
+    // 确保临时配置文件目录存在
+    ensureDirectoryExistence(tmpConfigPath);
+
+    // 保存远程配置内容到临时文件
+    fs.writeFileSync(tmpConfigPath, configContent);
+
+    // 杀死占用端口的进程
+    await killPort(33212);
+
+    // 构建 uniproxy 执行路径
+    const uniproxyName = process.platform === 'darwin' ? 'uniproxy' : 'uniproxy.exe';
+    const uniproxyPath = path.join(
+      process.resourcesPath,
+      "libs/",
+      process.platform + "-" + process.arch,
+      uniproxyName
+    );
+
+    // 执行 uniproxy 并传递配置文件路径
+    const uniproxy = exec(uniproxyPath, [
+      "-host",
+      "127.0.0.1",
+      "-port",
+      "33212",
+      "-conf",
+      tmpConfigPath
+    ], {
+      cwd: path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch)
+    }, (err, stdout, stderr) => {
       if (err) {
-        console.error(`Error executing Uniproxy: ${err}`);
+        console.error(err);
         return;
       }
-      console.log(`Uniproxy stdout: ${stdout}`);
-      console.error(`Uniproxy stderr: ${stderr}`);
+      // 打印标准输出和标准错误
+      console.log(stdout);
+      console.error(stderr);
     });
 
-    global.uniproxy = uniproxy;
+  } catch (error) {
+    console.error('发生错误:', error.message);
   }
+}
 
-  // Request the remote configuration file
-  https.get(remoteConfigUrl, (res) => {
-    if (res.statusCode !== 200) {
-      console.error(`Failed to get remote config: Status Code ${res.statusCode}`);
-      startUniproxy(localConfigPath);
-      return;
-    }
-
-    let data = '';
-    res.on('data', (chunk) => {
-      data += chunk;
-    });
-
-    res.on('end', () => {
-      try {
-        const configJson = JSON.parse(data); // Parsing JSON to check correctness
-        fs.writeFile(tempRemoteConfigPath, JSON.stringify(configJson, null, 2), (err) => {
-          if (err) {
-            console.error(`Failed to write remote config to file: ${err}`);
-            startUniproxy(localConfigPath);
-            return;
-          }
-          startUniproxy(tempRemoteConfigPath);
-        });
-      } catch (error) {
-        console.error(`Error parsing remote config: ${error.message}`);
-        startUniproxy(localConfigPath);
-      }
-    });
-  }).on('error', (err) => {
-    console.error(`Error fetching remote config: ${err.message}`);
-    startUniproxy(localConfigPath);
-  });
-
+// 每次启动都调用该函数
+runUniproxy();
+  
   if (app.isPackaged) {
     const server = express()
     server.use('/', express.static(__dirname))
