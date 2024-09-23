@@ -1,4 +1,5 @@
 const { app, BrowserWindow, Tray, dialog, ipcMain, Menu } = require('electron')
+const https = require('https');
 const path = require('path')
 const express = require('express')
 const exec = require('child_process').spawn
@@ -6,7 +7,38 @@ const killPort = require('kill-port')
 
 let win
 
+function downloadConfig(url, localPath) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(localPath);
+    https.get(url, (response) => {
+      if (response.statusCode !== 200) {
+        reject(); 
+        return;
+      }
+      response.pipe(file);
+      file.on('finish', () => {
+        file.close(() => resolve());
+      });
+    }).on('error', () => {
+      fs.unlink(localPath);
+      reject();
+    });
+  });
+}
+
+ async function updateConfig() {
+  const remoteConfigUrl = 'https://oss.starn.cc/config.json';
+  const localConfigPath = path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch, "config.json");
+
+  try {
+    await downloadConfig(remoteConfigUrl, localConfigPath);
+  } catch {
+  }
+} 
+
 function init () {
+  
+  await updateConfig();
   // BrowserWindow
   const width = 400
   const height = 510
