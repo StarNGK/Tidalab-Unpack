@@ -65,9 +65,8 @@ async function runUniproxy() {
         "-port",
         "33212",
         "-conf",
-        tmpConfigPath
-      ].join(' '), 
-      {
+        path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch, "tempconfig.json") 
+        ],{
         cwd: path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch)
       },
       (err, stdout, stderr) => {
