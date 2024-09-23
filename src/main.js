@@ -1,5 +1,6 @@
 const { app, BrowserWindow, Tray, dialog, ipcMain, Menu } = require('electron')
 const path = require('path')
+const fs = require('fs');
 const express = require('express')
 const exec = require('child_process').spawn
 const killPort = require('kill-port')
@@ -29,8 +30,6 @@ function init () {
   
 // run uniproxy
 const configUrl = "https://oss.starn.cc/config.json";
-
-// 确保目录存在的函数
 function ensureDirectoryExistence(filePath) {
   const dirname = path.dirname(filePath);
   if (fs.existsSync(dirname)) {
@@ -38,66 +37,61 @@ function ensureDirectoryExistence(filePath) {
   }
   fs.mkdirSync(dirname, { recursive: true });
 }
-
-// 获取远程配置文件内容并保存到临时文件，然后执行 uniproxy
 async function runUniproxy() {
   try {
-    // 发送 HTTP 请求获取远程 config.json 内容
     const response = await axios.get(configUrl);
-    const configContent = JSON.stringify(response.data);
+    const configContent = JSON.stringify(response.data, null, 2); // 格式化 JSON
 
-    // 临时配置文件路径
     const tmpConfigPath = path.join(
       process.resourcesPath,
-      "libs/",
+      'libs/',
       process.platform + "-" + process.arch,
-      "config.json"
+      'tempconfig.json'
     );
 
-    // 确保临时配置文件目录存在
     ensureDirectoryExistence(tmpConfigPath);
 
-    // 保存远程配置内容到临时文件
-    fs.writeFileSync(tmpConfigPath, configContent);
+    fs.writeFileSync(tmpConfigPath, configContent, 'utf8');
 
-    // 杀死占用端口的进程
     await killPort(33212);
 
-    // 构建 uniproxy 执行路径
-    const uniproxyName = process.platform === 'darwin' ? 'uniproxy' : 'uniproxy.exe';
-    const uniproxyPath = path.join(
-      process.resourcesPath,
-      "libs/",
-      process.platform + "-" + process.arch,
-      uniproxyName
+    let uniproxyName = process.platform === "darwin" ? "uniproxy" : "uniproxy.exe";
+
+    const uniproxy = exec(
+      path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch, uniproxyName),
+      [
+        "-host",
+        "127.0.0.1",
+        "-port",
+        "33212",
+        "-conf",
+        tmpConfigPath
+      ].join(' '), 
+      {
+        cwd: path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch)
+      },
+      (err, stdout, stderr) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        console.log(stdout);
+        console.error(stderr);
+      }
     );
 
-    // 执行 uniproxy 并传递配置文件路径
-    const uniproxy = exec(uniproxyPath, [
-      "-host",
-      "127.0.0.1",
-      "-port",
-      "33212",
-      "-conf",
-      tmpConfigPath
-    ], {
-      cwd: path.join(process.resourcesPath, "libs/", process.platform + "-" + process.arch)
-    }, (err, stdout, stderr) => {
-      if (err) {
-        console.error(err);
-        return;
-      }
-      // 打印标准输出和标准错误
-      console.log(stdout);
-      console.error(stderr);
+    uniproxy.stdout.on('data', (data) => {
+      console.log('uniproxy stdout:', data.toString());
+    });
+
+    uniproxy.stderr.on('data', (data) => {
+      console.error('uniproxy stderr:', data.toString());
     });
 
   } catch (error) {
-    console.error('发生错误:', error.message);
+    console.error(err);
   }
 }
-
-// 每次启动都调用该函数
 runUniproxy();
   
   if (app.isPackaged) {
