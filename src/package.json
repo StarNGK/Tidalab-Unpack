@@ -1,7 +1,7 @@
 {
-  "name": "StarCloud",
+  "name": "StarCloud全球云加速",
   "main": "main.js",
-  "version": "4.1.10",
+  "version": "4.2.3",
   "author": "tidalab",
   "license": "CC0-1.0",
   "dependencies": {
